@@ -40,7 +40,7 @@ jobs:
       - name: Exchange GitHub Token with JFrog
         run: |
           echo "Exchanging token with JFrog..."
-          curl --location 'https://hts2.jfrog.io/access/api/v1/oidc/token' \
+          curl --location 'https://yuvi.jfrog.io/access/api/v1/oidc/token' \
             --header 'Content-Type: application/json' \
             --data "{
                 \"grant_type\": \"urn:ietf:params:oauth:grant-type:token-exchange\",
