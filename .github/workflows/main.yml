@@ -1,0 +1,50 @@
+name: OIDC Debug Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Show GitHub OIDC Environment Vars
+        run: |
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL: $ACTIONS_ID_TOKEN_REQUEST_URL"
+          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN: $ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+
+      - name: Request GitHub OIDC Token Manually
+        id: get_token
+        run: |
+          echo "Requesting GitHub OIDC Token..."
+          TOKEN=$(curl -fsS \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=jfrog" | jq -r .value)
+
+          echo "OIDC_TOKEN=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Print Token (Header + Claims)
+        run: |
+          echo "=== ID Token Header ==="
+          echo "${{ steps.get_token.outputs.OIDC_TOKEN }}" | cut -d '.' -f1 | base64 -d | jq
+          echo "=== ID Token Claims ==="
+          echo "${{ steps.get_token.outputs.OIDC_TOKEN }}" | cut -d '.' -f2 | base64 -d | jq
+
+      - name: Exchange GitHub Token with JFrog
+        run: |
+          echo "Exchanging token with JFrog..."
+          curl --location 'https://hts2.jfrog.io/access/api/v1/oidc/token' \
+            --header 'Content-Type: application/json' \
+            --data "{
+                \"grant_type\": \"urn:ietf:params:oauth:grant-type:token-exchange\",
+                \"subject_token_type\": \"urn:ietf:params:oauth:token-type:id_token\",
+                \"subject_token\": \"${{ steps.get_token.outputs.OIDC_TOKEN }}\",
+                \"provider_name\": \"anjalis-github-workflow\"
+            }" -v
